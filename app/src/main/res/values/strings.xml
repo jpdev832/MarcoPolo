@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">MarcoPolo</string>
+    <string name="title_activity_main">Map</string>
+    <string name="title_activity_main2">Main2Activity</string>
+    <string name="post_simage">http://www.staticvillage.com/apps/marco_polo/simage.php</string>
+    <string name="post_marker">http://www.staticvillage.com/apps/marco_polo/marker.php</string>
+    <string-array name="marker_types">
+        <item>URL</item>
+        <item>Image</item>
+    </string-array>
+    <string name="title_activity_geo_fence">Map</string>
+</resources>
