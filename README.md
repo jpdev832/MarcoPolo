@@ -24,7 +24,6 @@ The Marco Polo app has few key components that need to be updated in order to ru
   * A POST endpoint will need to be added to /res/values/rest_endpoint.xml that can parse and save a json representation of a marker set
 ```xml
 <string name="post_marker">http://www.website.com/apps/marco_polo/marker_upload.php</string>
-</string>
 ```
 
 #Request Format
@@ -75,7 +74,7 @@ The response code from the sever should return a json response with the followin
 }
 ```
 
-#PHP Server Side Example (Image Save)
+#PHP Server Side Example (Marker Save)
 ```php
 <?php
 $web      = 'http://www.website.com'.dirname($_SERVER['PHP_SELF']).DIRECTORY_SEPARATOR.'markers';
@@ -128,7 +127,7 @@ die(json_encode($output));
 ?>
 ```
 
-#PHP Server Side Example (Marker Save)
+#PHP Server Side Example (Image Save)
 ```php
 <?php
 $web        = 'http://www.website.com'.dirname($_SERVER['PHP_SELF']).DIRECTORY_SEPARATOR.'images'.DIRECTORY_SEPARATOR;
