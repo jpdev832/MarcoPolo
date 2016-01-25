@@ -3,7 +3,7 @@ Marco Polo is geofence and exploration app for sharing moments with friends with
 
 ![](http://www.staticvillage.com/apps/marco_polo/uber_puff_banner.png)
 
-Uber Puff is a map assistant that will guide users from one marker to the next while showing them special moments on the way. She loves polaroids and has a pretty good knowledge of the android eco system. So, she can even send users to moments in other apps, on web pages, or even play that special song at the right moment.
+Uber Puff is a map assistant that will guide users from one marker to the next while showing them special moments on the way. She loves polaroids and has a pretty good knowledge of the android eco system. So, she can send users to moments in other apps, on web pages, or even play that special song at the right moment.
 
 #How To Use
 The Marco Polo app has few key components that need to be updated in order to run though.
