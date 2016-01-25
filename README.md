@@ -65,5 +65,14 @@ Marker sets are sent in the following format with a name representing the set an
 ```
 
 #Response Format
+The response code from the sever should return a json response with the following format.
+```json
+{
+  "status":"SUCCESS",
+  "status_code":200,
+  "message":"saved",
+  "path":"http://www.website.com/apps/marco_polo/moment1.png"
+}
+```
 
 #Server Side Example
