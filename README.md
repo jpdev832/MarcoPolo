@@ -8,14 +8,61 @@ Uber Puff is a map assistant that will guide users from one marker to the next w
 #How To Use
 The Marco Polo app has few key components that need to be updated in order to run though.
 
-1. Google Maps Api Key
+* Google Maps Api Key
   * The res/values/google_maps_api.xml file will need to be updated with your api key
-2. REST endpoint for saving images
+```xml
+<string name="google_maps_key" templateMergeStrategy="preserve" translatable="false">
+  <Api Key Here>
+</string>
+```
+* REST endpoint for saving images
   * A POST endpoint will need to be added to /res/values/rest_endpoint.xml that can process Multipart/form-data http request
-3. REST endpoint for saving marker file
+```xml
+<string name="post_simage">http://www.website.com/apps/marco_polo/image_upload.php</string>
+```
+* REST endpoint for saving marker file
   * A POST endpoint will need to be added to /res/values/rest_endpoint.xml that can parse and save a json representation of a marker set
+```xml
+<string name="post_marker">http://www.website.com/apps/marco_polo/marker_upload.php</string>
+</string>
+```
 
 #Request Format
+Marker sets are sent in the following format with a name representing the set and the marker data represented as json
+```json
+{
+  "name":"our_moment",
+  "data":"[
+    {
+      \"data\":[],
+      \"latitude\":40.72077279768406,
+      \"longitude\":-73.98633845150471,
+      \"markerIndex\":0,
+      \"message\":\"Start here and folow my markers\",
+      \"radius\":50,
+      \"timestamp\":1453173046375,
+      \"type\":\"Image\",
+      \"id\":38,
+      \"tableName\":\"POINT_MARKER\"
+    },
+    {
+      \"data\":[
+        \"http://www.website.com/apps/marco_polo/images/moment4.jpg\",
+        \"http://www.website.com/apps/marco_polo/images/moment5.jpg\"
+      ],
+      \"latitude\":40.72108585438302,
+      \"longitude\":-73.98686282336712,
+      \"markerIndex\":1,
+      \"message\":\"This is the first place we met!\",
+      \"radius\":50,
+      \"timestamp\":1453212204884,
+      \"type\":\"Image\",
+      \"id\":39,
+      \"tableName\":\"POINT_MARKER\"
+    }
+  ]"
+}
+```
 
 #Response Format
 
