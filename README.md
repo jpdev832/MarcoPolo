@@ -75,4 +75,117 @@ The response code from the sever should return a json response with the followin
 }
 ```
 
-#Server Side Example
+#PHP Server Side Example (Image Save)
+```php
+<?php
+$web      = 'http://www.website.com'.dirname($_SERVER['PHP_SELF']).DIRECTORY_SEPARATOR.'markers';
+$filePath = getcwd().DIRECTORY_SEPARATOR.'markers';
+$method   = $_SERVER['REQUEST_METHOD'];
+
+$output = array("status" => "FAIL",
+                "status_code" => 400,
+                "message" => "",
+                "path" => "");
+
+switch($method) {
+    case 'POST':
+        $json = json_decode(file_get_contents('php://input'), true);
+        $name = $json['name'];
+        $data = $json['data'];
+        
+        if(empty($name)) {
+            $output['message'] = "Bad Data! Error in name";
+            die(json_encode($output));
+        }
+        
+        if(empty($data)) {
+            $output['message'] = "Bad Data! Error in data";
+            die(json_encode($output));
+        }
+    
+        $file = $filePath.DIRECTORY_SEPARATOR.$name.'.mjs';
+        $web .= DIRECTORY_SEPARATOR.$name.'.mjs';
+        if(!file_put_contents($file, $data, LOCK_EX)) {
+            if(file_exists($file)) {
+                $output['message'] = "File already exists!";
+            } else {
+                $output['message'] = "An Error Occurred";
+            }
+        } else {
+            $output['status'] = 'SUCCESS';
+            $output['status_code'] = 200;
+            $output['message'] = "Saved!";
+            $output['path'] = $web;
+        }
+        break;
+    default:
+        header('HTTP/1.1 405 Method Not Allowed');
+        header('Allow: POST');
+        break;
+}
+
+die(json_encode($output));
+?>
+```
+
+#PHP Server Side Example (Marker Save)
+```php
+<?php
+$web        = 'http://www.website.com'.dirname($_SERVER['PHP_SELF']).DIRECTORY_SEPARATOR.'images'.DIRECTORY_SEPARATOR;
+$target_dir = getcwd().DIRECTORY_SEPARATOR.'images'.DIRECTORY_SEPARATOR;
+$method     = $_SERVER['REQUEST_METHOD'];
+
+$output = array("status" => "FAIL",
+                "status_code" => 400,
+                "message" => "",
+                "path" => "");
+
+switch($method) {
+    case 'POST':
+        $target_file   = $target_dir.basename($_FILES["uploadFile"]["name"]);
+        $web           = $web.basename($_FILES["uploadFile"]["name"]);
+        $imageFileType = pathinfo($target_file, PATHINFO_EXTENSION);
+        
+        $check = getimagesize($_FILES["uploadFile"]["tmp_name"]);
+        if($check === false) {
+            $output["message"] = "Invalid data";
+            break;
+        }
+        
+        // Check if file already exists
+        if (file_exists($target_file)) {
+            $output["status"] = "SUCCESS";
+            $output['status_code'] = 200;
+            $output['message'] = "File already exists";
+            $output['path'] = $web;
+            break;
+        }
+
+        // Allow certain file formats
+        if($imageFileType != "jpg" && $imageFileType != "png" && $imageFileType != "jpeg") {
+            $output['status_code'] = 400;
+            $output["message"] = "Invalid file format";
+            break;
+        }
+        
+        if (move_uploaded_file($_FILES["uploadFile"]["tmp_name"], $target_file)) {
+            $output['status_code'] = 201;
+            $output['message'] = "File saved";
+        } else {
+            $output['status_code'] = 400;
+            $output['message'] = "There was an error uploading file";
+            break;
+        }
+        
+        $output['status'] = 'SUCCESS';
+        $output['path'] = $web;
+        break;
+    default:
+        header('HTTP/1.1 405 Method Not Allowed');
+        header('Allow: POST');
+        break;
+}
+
+die(json_encode($output));
+?>
+```
