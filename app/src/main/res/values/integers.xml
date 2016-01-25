@@ -1,2 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources></resources>
+<resources>
+    <integer name="image_delay">8000</integer>
+    <integer name="url_delay">30000</integer>
+    <integer name="geofence_enter_delay">25000</integer>
+    <integer name="geofence_interval">10000</integer>
+    <integer name="geofence_fast_interval">5000</integer>
+    <integer name="geofence_tilt_level">80</integer>
+    <integer name="geofence_zoom_level">20</integer>
+    <integer name="radius">50</integer>
+</resources>

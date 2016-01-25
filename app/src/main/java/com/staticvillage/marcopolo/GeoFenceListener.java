@@ -1,12 +1,12 @@
 package com.staticvillage.marcopolo;
 
 /**
- * Created by joelparrish on 1/4/16.
+ * Created by joelparrish
  */
 public interface GeoFenceListener {
     /**
      * GeoFence trigger event
      * @param id marker id of triggered event
      */
-    public void onGeoFence(int id);
+    void onGeoFence(int id);
 }

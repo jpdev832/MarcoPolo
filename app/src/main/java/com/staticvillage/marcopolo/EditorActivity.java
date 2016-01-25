@@ -3,29 +3,26 @@ package com.staticvillage.marcopolo;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.res.Configuration;
-import android.database.Cursor;
 import android.graphics.Bitmap;
-import android.location.Location;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.AsyncTask;
-import android.provider.DocumentsContract;
-import android.provider.MediaStore;
+import android.os.ParcelFileDescriptor;
 import android.support.design.widget.CoordinatorLayout;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
-import android.util.Base64;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.Toast;
 
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.location.LocationServices;
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.RequestFuture;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -33,38 +30,44 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.Circle;
 import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
+import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.gson.Gson;
 import com.staticvillage.marcopolo.model.DataStruct;
+import com.staticvillage.marcopolo.model.MarkerData;
 import com.staticvillage.marcopolo.model.PointMarker;
 import com.staticvillage.marcopolo.model.Response;
-import com.staticvillage.marcopolo.utils.ImageHelper;
+import com.staticvillage.marcopolo.net.FileRequest;
+import com.staticvillage.marcopolo.net.VolleyRequestQueue;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
-import java.io.FileNotFoundException;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.Date;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class EditorActivity extends AppCompatActivity implements OnMapReadyCallback,
-        GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
         GoogleMap.OnMapLongClickListener, DeleteDialogFragment.DeleteDialogListener,
-        UploadDialogFragment.UploadDialogListener, MarkerDialogFragment.MarkerDialogListener{
+        UploadDialogFragment.UploadDialogListener, MarkerDialogFragment.MarkerDialogListener,
+        GoogleMap.OnMarkerClickListener, GoogleMap.OnMarkerDragListener {
+    private static final String REQUEST_TAG = "image_request";
     private static final int MARKER_COLOR = 0x80FF0000;
     private static final int RADIUS = 50;
 
     private CoordinatorLayout mCoordinatorLayout;
     private ProgressDialog mProgressDialog;
     private FloatingActionButton mFab;
-    private GoogleApiClient mGoogleApiClient;
     private GoogleMap mMap;
-    private Location mLastLocation;
-    private Circle mLastMarker;
+    private RequestQueue mQueue;
+    private LinkedList<Circle> mCircleList;
+    private LinkedList<Marker> mMarkerList;
     private LinkedList<PointMarker> mPointMarkerList;
 
     @Override
@@ -72,23 +75,7 @@ public class EditorActivity extends AppCompatActivity implements OnMapReadyCallb
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .addApi(LocationServices.API)
-                .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this)
-                .build();
-
-        mPointMarkerList = new LinkedList<>();
-
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-        toolbar.setTitle("Editor");
-        setSupportActionBar(toolbar);
-
         mCoordinatorLayout = (CoordinatorLayout)findViewById(R.id.coordinatorLayout);
-
-        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                .findFragmentById(R.id.map);
-        mapFragment.getMapAsync(this);
 
         mFab = (FloatingActionButton) findViewById(R.id.fab);
         mFab.setOnClickListener(new View.OnClickListener() {
@@ -100,43 +87,54 @@ public class EditorActivity extends AppCompatActivity implements OnMapReadyCallb
         });
         mFab.hide();
 
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        toolbar.setTitle("Editor");
+        setSupportActionBar(toolbar);
+
+        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.map);
+        mapFragment.getMapAsync(this);
+
+        mCircleList = new LinkedList<>();
+        mMarkerList = new LinkedList<>();
+        mPointMarkerList = new LinkedList<>();
+
         mProgressDialog = ProgressDialog.show(EditorActivity.this, "Load Markers", "Loading...");
         new LoadTask().execute();
     }
 
-    @Override
-    protected void onStart() {
-        super.onStart();
-        mGoogleApiClient.connect();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-    }
-
+    /**
+     * handle activity break down
+     */
     @Override
     protected void onStop() {
         super.onStop();
-        mGoogleApiClient.disconnect();
+
+        if (mQueue != null)
+            mQueue.cancelAll(REQUEST_TAG);
     }
 
+    /**
+     * Create toolbar menu options
+     * @param menu menu
+     * @return handled
+     */
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.config_menu, menu);
         return true;
     }
 
+    /**
+     * Handle toolbar menu item click
+     * @param item menu item clicked
+     * @return handled
+     */
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.action_delete:
-                DeleteDialogFragment deleteDialog = new DeleteDialogFragment();
+                DeleteDialogFragment deleteDialog = DeleteDialogFragment.newInstance();
                 deleteDialog.show(getFragmentManager(), "delete");
                 return true;
             default:
@@ -144,74 +142,85 @@ public class EditorActivity extends AppCompatActivity implements OnMapReadyCallb
         }
     }
 
+    /**
+     * Handle orientation changes
+     * @param newConfig config
+     */
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
     }
 
+    /**
+     * Google map fragment is ready
+     * @param googleMap map fragment
+     */
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
         mMap.setMyLocationEnabled(true);
         mMap.setOnMapLongClickListener(this);
+        mMap.setOnMarkerClickListener(this);
+        mMap.setOnMarkerDragListener(this);
     }
 
-    @Override
-    public void onConnected(Bundle bundle) {
-        mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
-
-        if(mMap != null) {
-            if(mPointMarkerList.size() > 0) {
-                mMap.animateCamera(CameraUpdateFactory.newLatLng(
-                        new LatLng(mPointMarkerList.get(0).getLatitude(),
-                                mPointMarkerList.get(0).getLongitude())));
-            } else {
-                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(
-                        new LatLng(mLastLocation.getLatitude(),
-                                mLastLocation.getLongitude()), 16));
-            }
-        }
-    }
-
-    @Override
-    public void onConnectionSuspended(int i) {
-
-    }
-
-    @Override
-    public void onConnectionFailed(ConnectionResult connectionResult) {
-        Toast.makeText(this, "Failed to connect services", Toast.LENGTH_SHORT).show();
-    }
-
+    /**
+     * Handle long press on map
+     * @param latLng long press location
+     */
     @Override
     public void onMapLongClick(LatLng latLng) {
-        mLastMarker = mMap.addCircle(new CircleOptions()
-                .center(latLng)
-                .radius(RADIUS)
-                .fillColor(MARKER_COLOR));
+        addMarker(latLng);
 
-        MarkerDialogFragment markerDialogFragment = new MarkerDialogFragment();
-        markerDialogFragment.setLatLng(latLng);
-        markerDialogFragment.setRadius(RADIUS);
+        MarkerDialogFragment markerDialogFragment =
+                MarkerDialogFragment.newInstance(latLng.latitude, latLng.longitude, RADIUS);
         markerDialogFragment.show(getFragmentManager(), "marker");
     }
 
+    /**
+     * Delete all geofence markers
+     */
     @Override
     public void onDeleteMarkers() {
         mProgressDialog = ProgressDialog.show(this, "Delete Markers", "Deleting...");
         new DeleteTask().execute();
     }
 
+    /**
+     * Cancel new marker addition
+     * @param delete delete last marker
+     */
     @Override
-    public void onMarkerCancel() {
-        mLastMarker.remove();
+    public void onMarkerCancel(boolean delete) {
+        if(delete) {
+            int index = mPointMarkerList.size();
+            mCircleList.get(index).remove();
+            mMarkerList.get(index).remove();
+
+            mCircleList.remove(index);
+            mMarkerList.remove(index);
+        }
     }
 
+    /**
+     * Add new marker
+     * @param pointMarker point marker
+     */
     @Override
     public void onMarkerAdd(PointMarker pointMarker) {
-        pointMarker.setMarkerIndex(mPointMarkerList.size());
+        if(pointMarker.getMarkerIndex() == -1) {
+            pointMarker.setMarkerIndex(mPointMarkerList.size());
+            mPointMarkerList.add(pointMarker);
+        }
+
         pointMarker.save();
-        mPointMarkerList.add(pointMarker);
+
+        for(String data : pointMarker.getData()) {
+            MarkerData markerData = new MarkerData();
+            markerData.setData(data);
+            markerData.setPointMarkerId(pointMarker.getId());
+            markerData.save();
+        }
 
         if(mPointMarkerList.size() >= 1 && !mFab.isShown())
             mFab.show();
@@ -225,158 +234,244 @@ public class EditorActivity extends AppCompatActivity implements OnMapReadyCallb
                 }).show();
     }
 
+    /**
+     * Launch upload task
+     * @param name marker set name
+     */
     @Override
     public void onUploadDialogPositiveClick(String name) {
         mProgressDialog = ProgressDialog.show(this, "Uploading Markers", "Uploading...");
         new UploadTask(this, name, mPointMarkerList).execute();
     }
 
+    /**
+     * Handle marker select
+     * @param marker selected marker
+     * @return handled
+     */
+    @Override
+    public boolean onMarkerClick(Marker marker) {
+        int index = mMarkerList.indexOf(marker);
+        PointMarker pointMarker = mPointMarkerList.get(index);
+
+        MarkerDialogFragment markerDialogFragment = MarkerDialogFragment.newInstance(pointMarker);
+        markerDialogFragment.show(getFragmentManager(), "marker");
+        return false;
+    }
+
+    @Override
+    public void onMarkerDragStart(Marker marker) {
+
+    }
+
+    /**
+     * Handle marker drag
+     * @param marker marker
+     */
+    @Override
+    public void onMarkerDrag(Marker marker) {
+        int index = mMarkerList.indexOf(marker);
+        Circle circle = mCircleList.get(index);
+        circle.setCenter(marker.getPosition());
+    }
+
+    /**
+     * Handle marker drag end
+     * @param marker marker
+     */
+    @Override
+    public void onMarkerDragEnd(Marker marker) {
+        int index = mMarkerList.indexOf(marker);
+        Circle circle = mCircleList.get(index);
+        circle.setCenter(marker.getPosition());
+
+        PointMarker pointMarker = mPointMarkerList.get(index);
+        pointMarker.setLatitude(marker.getPosition().latitude);
+        pointMarker.setLongitude(marker.getPosition().longitude);
+        pointMarker.save();
+    }
+
+    /**
+     * Add marker to map
+     * @param latLng marker position
+     */
+    protected void addMarker(LatLng latLng) {
+        Circle circle = mMap.addCircle(new CircleOptions()
+                .center(latLng)
+                .radius(RADIUS)
+                .fillColor(MARKER_COLOR));
+
+        Marker marker = mMap.addMarker(new MarkerOptions()
+                .position(latLng)
+                .draggable(true));
+
+        mCircleList.add(circle);
+        mMarkerList.add(marker);
+    }
+
+    /**
+     * Undo last added marker
+     */
     protected void undoMarker() {
-        mLastMarker.remove();
+        int index = mPointMarkerList.size() - 1;
+        mCircleList.get(index).remove();
+        mMarkerList.get(index).remove();
+
+        mCircleList.remove(index);
+        mMarkerList.remove(index);
         mPointMarkerList.removeLast();
     }
 
-    private class UploadTask extends AsyncTask<Void, Void, Void> {
+    /**
+     * Upload async task
+     */
+    private class UploadTask extends AsyncTask<Void, Void, Response> {
         private final Context mmContext;
         private final String mmName;
-        private final List<PointMarker> mmPointMarkers;
+        private final PointMarker[] mmPointMarkers;
         private final Gson mmGson;
 
         public UploadTask(Context context, String name, List<PointMarker> pointMarkers) {
             this.mmContext = context;
             this.mmName = name;
-            this.mmPointMarkers = pointMarkers;
+            this.mmPointMarkers = pointMarkers.toArray(new PointMarker[]{});
             this.mmGson = new Gson();
         }
 
-        private String getRealPathFromURI(Context context, Uri uri){
-            String filePath = "";
-            String wholeID  = DocumentsContract.getDocumentId(uri);
-            String id       = wholeID.split(":")[1];
-            String[] column = { MediaStore.Images.Media.DATA };
-            String sel      = MediaStore.Images.Media._ID + "=?";
+        /**
+         * Send marker images
+         * @param file image file
+         * @return request response
+         * @throws IOException
+         */
+        private Response sendImage(File file) throws IOException {
+            Log.d("marco_polo", "sending");
+            String url = mmContext.getString(R.string.post_simage);
 
-            Cursor cursor = context.getContentResolver().query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                    column, sel, new String[]{ id }, null);
+            RequestFuture<String> requestFuture = RequestFuture.newFuture();
+            FileRequest request = new FileRequest(url, file, requestFuture, requestFuture);
+            request.setTag(REQUEST_TAG);
 
-            int columnIndex = cursor.getColumnIndex(column[0]);
+            mQueue = VolleyRequestQueue.getInstance(mmContext).getRequestQueue();
+            mQueue.add(request);
 
-            if (cursor.moveToFirst()) {
-                filePath = cursor.getString(columnIndex);
+            try {
+                String responseJson = requestFuture.get(10, TimeUnit.SECONDS);
+                return mmGson.fromJson(responseJson, Response.class);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } catch (ExecutionException e) {
+                e.printStackTrace();
+            } catch (TimeoutException e) {
+                e.printStackTrace();
             }
-            cursor.close();
-            return filePath;
+
+            return null;
         }
 
-        private PointMarker sendImage(PointMarker pointMarker, String name, byte[] byteArray) throws IOException {
+        /**
+         * Send marker set
+         * @return request response
+         * @throws IOException
+         * @throws JSONException
+         */
+        private Response sendMarkers() throws IOException, JSONException {
             Log.d("marco_polo", "sending");
-            URL url = new URL(getString(R.string.post_simage));
-            HttpURLConnection connection = (HttpURLConnection)url.openConnection();
-            connection.setRequestProperty("Content-Type", "application/json");
-            connection.setRequestMethod("POST");
-            connection.setDoInput(true);
-            connection.setDoOutput(true);
+            String url = getString(R.string.post_marker);
+            String pointMarkerJson = mmGson.toJson(mmPointMarkers);
 
-            DataStruct<String> dataStruct =
-                    new DataStruct<String>(name, Base64.encodeToString(byteArray, Base64.DEFAULT));
+            DataStruct<String> markerStruct = new DataStruct<>(mmName, pointMarkerJson);
+            String json = mmGson.toJson(markerStruct);
 
-            OutputStreamWriter writer = new OutputStreamWriter(connection.getOutputStream());
-            writer.write(mmGson.toJson(dataStruct));
-            writer.flush();
+            RequestFuture<JSONObject> requestFuture = RequestFuture.newFuture();
+            JsonObjectRequest request = new JsonObjectRequest(Request.Method.POST, url, json,
+                    requestFuture, requestFuture);
 
-            StringBuilder sb = new StringBuilder();
-            int httpResult = connection.getResponseCode();
-            if(httpResult == HttpURLConnection.HTTP_OK) {
-                BufferedReader br = new BufferedReader(
-                        new InputStreamReader(connection.getInputStream(),"utf-8"));
+            mQueue = VolleyRequestQueue.getInstance(mmContext).getRequestQueue();
+            mQueue.add(request);
 
-                String line = null;
-                while ((line = br.readLine()) != null) {
-                    sb.append(line + "\n");
-                }
-
-                br.close();
-                Response response = mmGson.fromJson(sb.toString(), Response.class);
-                pointMarker.setData(response.getPath());
-                Log.d("marco_polo", sb.toString());
-            }else{
-                pointMarker.setData("");
-                Log.d("marco_polo", "failed");
+            try {
+                JSONObject responseJson = requestFuture.get(10, TimeUnit.SECONDS);
+                return mmGson.fromJson(responseJson.toString(), Response.class);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } catch (ExecutionException e) {
+                e.printStackTrace();
+            } catch (TimeoutException e) {
+                e.printStackTrace();
             }
 
-            return pointMarker;
+            return null;
         }
 
-        private void sendMarkers() throws IOException {
-            Log.d("marco_polo", "sending");
-            URL url = new URL(getString(R.string.post_marker));
-            HttpURLConnection connection = (HttpURLConnection)url.openConnection();
-            connection.setRequestProperty("Content-Type", "application/json");
-            connection.setRequestMethod("POST");
-            connection.setUseCaches(false);
-            connection.setDoInput(true);
-            connection.setDoOutput(true);
+        /**
+         * Crop image
+         * @param bitmap image
+         * @return cropped image
+         */
+        private Bitmap cropBitmap(Bitmap bitmap) {
+            Bitmap dstBmp;
 
-            String json = mmGson.toJson(mmPointMarkers);
-            Log.d("marco_polo", json);
-            DataStruct<String> markerStruct = new DataStruct<>(mmName, json);
-
-            Log.d("marco_polo", mmGson.toJson(markerStruct));
-
-            OutputStreamWriter writer = new OutputStreamWriter(connection.getOutputStream());
-            writer.write(mmGson.toJson(markerStruct));
-            writer.flush();
-
-            StringBuilder sb = new StringBuilder();
-            int httpResult = connection.getResponseCode();
-            if(httpResult == HttpURLConnection.HTTP_OK) {
-                BufferedReader br = new BufferedReader(
-                        new InputStreamReader(connection.getInputStream(),"utf-8"));
-
-                String line = null;
-                while ((line = br.readLine()) != null) {
-                    sb.append(line + "\n");
-                }
-
-                br.close();
-                Response response = mmGson.fromJson(sb.toString(), Response.class);
-                Log.d("marco_polo", sb.toString());
-            }else{
-                Log.d("marco_polo", "failed");
+            if (bitmap.getWidth() >= bitmap.getHeight()) {
+                dstBmp = Bitmap.createBitmap(bitmap, bitmap.getWidth()/2 - bitmap.getHeight()/2,
+                        0, bitmap.getHeight(), bitmap.getHeight());
+            } else {
+                dstBmp = Bitmap.createBitmap(bitmap, 0, bitmap.getHeight()/2 - bitmap.getWidth()/2,
+                        bitmap.getWidth(), bitmap.getWidth());
             }
+
+            return Bitmap.createScaledBitmap(dstBmp, 300, 300, false);
         }
 
         @Override
-        protected Void doInBackground(Void... params) {
-            long timestamp = new Date().getTime();
-
+        protected Response doInBackground(Void... params) {
             for(PointMarker pointMarker : mmPointMarkers) {
                 try {
                     if(pointMarker.getType().equals("Image")) {
                         Log.d("marco_polo", "Openning image stream");
+                        ArrayList<String> points = new ArrayList<>(pointMarker.getData().size());
 
-                        String name = pointMarker.getData()
-                                .substring(pointMarker.getData().lastIndexOf("/") + 1)
-                                .replace("%3A", "_");
+                        for(String uri : pointMarker.getData()) {
+                            String filePath = Uri.parse(uri).getPath();
+                            String name = filePath.substring(filePath.lastIndexOf("/") + 1)
+                                    .replace("%3A", "_").replace("%2F", "_");
 
-                        String filepath = getRealPathFromURI(mmContext, Uri.parse(pointMarker.getData()));
-                        Bitmap bitmap = ImageHelper.decodeBitmap(mmContext, filepath, 360, 203);
-                        ByteArrayOutputStream stream = new ByteArrayOutputStream();
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 70, stream);
-                        byte[] byteArray = stream.toByteArray();
+                            ParcelFileDescriptor parcelFileDescriptor =
+                                    mmContext.getContentResolver()
+                                            .openFileDescriptor(Uri.parse(uri), "r");
 
-                        sendImage(pointMarker, name, byteArray);
+                            BitmapFactory.Options options = new BitmapFactory.Options();
+                            options.inPreferredConfig = Bitmap.Config.RGB_565;
+                            Bitmap bitmap = cropBitmap(BitmapFactory
+                                    .decodeFileDescriptor(parcelFileDescriptor.getFileDescriptor()));
+
+                            File file = new File(getCacheDir(), name);
+                            FileOutputStream fileOutputStream = new FileOutputStream(file);
+                            if(!bitmap.compress(Bitmap.CompressFormat.JPEG, 70, fileOutputStream)) {
+                                fileOutputStream.close();
+                                return null;
+                            }
+                            fileOutputStream.close();
+
+                            Response response = sendImage(file);
+
+                            if(response == null || response.getStatus_code() >= 300)
+                                return response;
+
+                            points.add(response.getPath());
+                        }
+
+                        pointMarker.setData(points);
                     }
-                } catch (FileNotFoundException e) {
+                } catch (Exception e) {
                     e.printStackTrace();
-                } catch (IOException e) {
-                    e.printStackTrace();
+                    return null;
                 }
             }
 
             try {
-                sendMarkers();
-            } catch (IOException e) {
+                return sendMarkers();
+            } catch (Exception e) {
                 e.printStackTrace();
             }
 
@@ -384,48 +479,69 @@ public class EditorActivity extends AppCompatActivity implements OnMapReadyCallb
         }
 
         @Override
-        protected void onPostExecute(Void aVoid) {
+        protected void onPostExecute(Response response) {
             mProgressDialog.dismiss();
-            Snackbar.make(mCoordinatorLayout, "Saved Markers", Snackbar.LENGTH_SHORT).show();
+
+            String message;
+            if(response == null)
+                message = "Error occured while uploading markers";
+            else
+                message = response.getMessage();
+
+            Snackbar.make(mCoordinatorLayout, message, Snackbar.LENGTH_SHORT).show();
         }
     }
 
+    /**
+     * Load markers from DB async task
+     */
     private class LoadTask extends AsyncTask<Void, Void, List<PointMarker>> {
         @Override
         protected List<PointMarker> doInBackground(Void... params) {
-            return PointMarker.listAll(PointMarker.class);
+            List<PointMarker> pointMarkers = PointMarker.listAll(PointMarker.class);
+
+            for (PointMarker pointMarker : pointMarkers) {
+                List<MarkerData> markerDataList = MarkerData.find(MarkerData.class, "point_marker_id=?",
+                        String.valueOf(pointMarker.getId()));
+
+                for (MarkerData markerData : markerDataList)
+                    pointMarker.addData(markerData.getData());
+            }
+
+            return pointMarkers;
         }
 
         @Override
         protected void onPostExecute(List<PointMarker> pointMarkers) {
             int index = 0;
             for(PointMarker pointMarker : pointMarkers) {
-                mMap.addCircle(new CircleOptions()
-                        .center(new LatLng(pointMarker.getLatitude(), pointMarker.getLongitude()))
-                        .radius(RADIUS)
-                        .fillColor(MARKER_COLOR));
-
+                addMarker(new LatLng(pointMarker.getLatitude(), pointMarker.getLongitude()));
                 pointMarker.setMarkerIndex(index++);
                 mPointMarkerList.add(pointMarker);
             }
 
-            if(mPointMarkerList.size() > 0 && mLastLocation != null)
+            if(mPointMarkerList.size() > 0)
                 mMap.animateCamera(CameraUpdateFactory.newLatLng(
                         new LatLng(mPointMarkerList.get(0).getLatitude(),
                                 mPointMarkerList.get(0).getLongitude())));
 
-            Snackbar.make(mCoordinatorLayout, "Loaded Markers", Snackbar.LENGTH_SHORT).show();
             mProgressDialog.dismiss();
 
             if(mPointMarkerList.size() >= 1 && !mFab.isShown())
                 mFab.show();
+
+            Snackbar.make(mCoordinatorLayout, "Loaded Markers", Snackbar.LENGTH_SHORT).show();
         }
     }
 
+    /**
+     * Delete marker set async task
+     */
     private class DeleteTask extends AsyncTask<Void, Void, Void> {
         @Override
         protected Void doInBackground(Void... params) {
             PointMarker.deleteAll(PointMarker.class);
+            MarkerData.deleteAll(MarkerData.class);
             return null;
         }
 

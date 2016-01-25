@@ -3,8 +3,12 @@ package com.staticvillage.marcopolo;
 import android.graphics.Canvas;
 
 /**
- * Created by joelparrish on 1/11/16.
+ * Created by joelparrish.
  */
 public interface Drawer {
-    public void draw(Canvas canvas);
+    /**
+     * Draw images to canvas
+     * @param canvas canvas
+     */
+    void draw(Canvas canvas);
 }

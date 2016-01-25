@@ -1,11 +1,17 @@
 package com.staticvillage.marcopolo.model;
 
+import android.os.Parcel;
+import android.os.Parcelable;
+
 import com.orm.SugarRecord;
 
+import java.util.LinkedList;
+import java.util.List;
+
 /**
- * Created by joelparrish on 12/28/15.
+ * Created by joelparrish
  */
-public class PointMarker extends SugarRecord<PointMarker> {
+public class PointMarker extends SugarRecord<PointMarker> implements Parcelable {
     /**
      * Timestamp marker was uploaded
      */
@@ -29,7 +35,7 @@ public class PointMarker extends SugarRecord<PointMarker> {
     /**
      * Data associated with marker
      */
-    private String data;
+    private List<String> data;
 
     /**
      * Data type
@@ -41,7 +47,38 @@ public class PointMarker extends SugarRecord<PointMarker> {
      */
     private int radius;
 
-    public PointMarker(){}
+    /**
+     * Marker message
+     */
+    private String message;
+
+    public PointMarker(){
+        data = new LinkedList<>();
+        markerIndex = -1;
+    }
+
+    protected PointMarker(Parcel in) {
+        timestamp = in.readLong();
+        markerIndex = in.readInt();
+        latitude = in.readDouble();
+        longitude = in.readDouble();
+        data = in.createStringArrayList();
+        type = in.readString();
+        radius = in.readInt();
+        message = in.readString();
+    }
+
+    public static final Creator<PointMarker> CREATOR = new Creator<PointMarker>() {
+        @Override
+        public PointMarker createFromParcel(Parcel in) {
+            return new PointMarker(in);
+        }
+
+        @Override
+        public PointMarker[] newArray(int size) {
+            return new PointMarker[size];
+        }
+    };
 
     public long getTimestamp() {
         return timestamp;
@@ -75,11 +112,15 @@ public class PointMarker extends SugarRecord<PointMarker> {
         this.longitude = longitude;
     }
 
-    public String getData() {
+    public List<String> getData() {
         return data;
     }
 
-    public void setData(String data) {
+    public void addData(String data) {
+        this.data.add(data);
+    }
+
+    public void setData(List<String> data) {
         this.data = data;
     }
 
@@ -97,5 +138,36 @@ public class PointMarker extends SugarRecord<PointMarker> {
 
     public void setRadius(int radius) {
         this.radius = radius;
+    }
+
+    public String getMessage() {
+        if(message == null)
+            return "";
+
+        return message;
+    }
+
+    public void setMessage(String message) {
+        if(message == null)
+            message = "";
+
+        this.message = message;
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel out, int flags) {
+        out.writeLong(timestamp);
+        out.writeInt(markerIndex);
+        out.writeDouble(latitude);
+        out.writeDouble(longitude);
+        out.writeStringList(data);
+        out.writeString(type);
+        out.writeInt(radius);
+        out.writeString(message);
     }
 }

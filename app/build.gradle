@@ -17,6 +17,10 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    packagingOptions {
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/LICENSE'
+    }
 }
 
 dependencies {
@@ -32,8 +36,13 @@ dependencies {
     //JSON
     compile 'com.android.support:appcompat-v7:22.2.1'
 
-    //GLIDE
+    //Request
     compile 'com.github.bumptech.glide:glide:3.6.1'
+    compile 'com.mcxiaoke.volley:library:1.0.19'
+//    compile 'org.apache.httpcomponents:httpclient-android:4.3.5'
+//    compile('org.apache.httpcomponents:httpmime:4.3.6') {
+//        exclude module: 'httpclient-android'
+//    }
 
     //Maps
     compile 'com.google.maps.android:android-maps-utils:0.4+'

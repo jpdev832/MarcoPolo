@@ -22,6 +22,11 @@ public class VolleyRequestQueue {
         mRequestQueue = getRequestQueue();
     }
 
+    /**
+     * Get an instance of Volley Request Queue
+     * @param context context
+     * @return Volley Request Queue instance
+     */
     public static synchronized VolleyRequestQueue getInstance(Context context) {
         if (mInstance == null) {
             mInstance = new VolleyRequestQueue(context);
@@ -29,6 +34,10 @@ public class VolleyRequestQueue {
         return mInstance;
     }
 
+    /**
+     * Get instance Queue
+     * @return instance Request Queue
+     */
     public RequestQueue getRequestQueue() {
         if (mRequestQueue == null) {
             Cache cache = new DiskBasedCache(mCtx.getCacheDir(), 5 * 1024 * 1024);

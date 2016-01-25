@@ -27,19 +27,23 @@ public class FileRequest extends Request<String> {
     private final static char[] MULTIPART_CHARS =
             "-_1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".toCharArray();
 
-    protected static String generateContentType(final String boundary, final Charset charset) {
+    /**
+     * Generate content type http request property
+     * @param boundary multipart/form-data boundary
+     * @return content type http request property
+     */
+    protected static String generateContentType(final String boundary) {
         final StringBuilder buffer = new StringBuilder();
         buffer.append("multipart/form-data; boundary=");
         buffer.append(boundary);
 
-        if (charset != null) {
-            buffer.append("; charset=");
-            buffer.append(charset.name());
-        }
-
         return buffer.toString();
     }
 
+    /**
+     * Generate multipart/form-data boundary
+     * @return multipart/form-data boundary
+     */
     protected static String generateBoundary() {
         final StringBuilder buffer = new StringBuilder();
         final Random rand = new Random();
@@ -59,6 +63,13 @@ public class FileRequest extends Request<String> {
     private final String mBoundary;
     private final String mContentType;
 
+    /**
+     * Create a new FileRequest
+     * @param url http url
+     * @param file file to send
+     * @param listener response listener
+     * @param errorListener error response listener
+     */
     public FileRequest(String url, File file, Response.Listener<String> listener,
                        Response.ErrorListener errorListener) {
         super(Method.POST, url, errorListener);
@@ -66,9 +77,13 @@ public class FileRequest extends Request<String> {
         this.mListener = listener;
         this.mFilePart = file;
         this.mBoundary = generateBoundary();
-        this.mContentType = generateContentType(mBoundary, null);
+        this.mContentType = generateContentType(mBoundary);
     }
 
+    /**
+     * Get content deposition
+     * @return content deposition property
+     */
     protected String getContentDeposition() {
         StringBuilder builder = new StringBuilder();
         builder.append("content-disposition: ")
@@ -78,14 +93,27 @@ public class FileRequest extends Request<String> {
         return builder.toString();
     }
 
+    /**
+     * Get content type
+     * @return content type property
+     */
     protected String getContentType() {
         return "Content-Type: image/jpeg";
     }
 
+    /**
+     * Get content transer encoding
+     * @return content transer encoding property
+     */
     protected String getContentTranserEncoding() {
         return "Content-Transfer-Encoding: binary";
     }
 
+    /**
+     * Write file bytes to outputstream
+     * @param out outputstream
+     * @throws IOException
+     */
     protected void writeFile(OutputStream out) throws IOException {
         final InputStream in = new FileInputStream(mFilePart);
         try {
@@ -100,6 +128,11 @@ public class FileRequest extends Request<String> {
         }
     }
 
+    /**
+     * Write multipart/form-data body with boundaries
+     * @param out outputstream
+     * @throws IOException
+     */
     protected void writeTo(OutputStream out) throws IOException {
         out.write(TWO_DASHES.getBytes());
         out.write(mBoundary.getBytes());
@@ -123,11 +156,20 @@ public class FileRequest extends Request<String> {
         out.write(CR_LF.getBytes());
     }
 
+    /**
+     * Http request body content type
+     * @return multipart/form-data content type
+     */
     @Override
     public String getBodyContentType() {
         return mContentType;
     }
 
+    /**
+     * Create request body
+     * @return request body byte array
+     * @throws AuthFailureError
+     */
     @Override
     public byte[] getBody() throws AuthFailureError {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -140,6 +182,11 @@ public class FileRequest extends Request<String> {
         return bos.toByteArray();
     }
 
+    /**
+     * Parse network Response
+     * @param response response
+     * @return response data as string
+     */
     @Override
     protected Response<String> parseNetworkResponse(NetworkResponse response) {
         try {
@@ -151,6 +198,10 @@ public class FileRequest extends Request<String> {
         }
     }
 
+    /**
+     * Http request response
+     * @param response response
+     */
     @Override
     protected void deliverResponse(String response) {
         mListener.onResponse(response);

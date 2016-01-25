@@ -8,14 +8,22 @@ import android.content.DialogInterface;
 import android.os.Bundle;
 
 /**
- * Created by joelparrish on 12/30/15.
+ * Created by joelparrish.
  */
 public class DeleteDialogFragment extends DialogFragment {
+    /**
+     * Create new instance of fragment
+     * @return fragment
+     */
+    public static DeleteDialogFragment newInstance() {
+        return new DeleteDialogFragment();
+    }
+
     /**
      * Delete Dialog Listener
      */
     public interface DeleteDialogListener {
-        public void onDeleteMarkers();
+        void onDeleteMarkers();
     }
 
     private DeleteDialogListener mListener;

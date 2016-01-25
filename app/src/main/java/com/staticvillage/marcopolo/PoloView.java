@@ -38,7 +38,7 @@ public class PoloView extends SurfaceView implements SurfaceHolder.Callback{
      * Initialize view
      */
     private void init(AttributeSet attrs) {
-        Log.d("lemi", "initializing view");
+        Log.d("marco_polo", "initializing view");
         setZOrderOnTop(true);
 
         mHolder = getHolder();
@@ -46,12 +46,18 @@ public class PoloView extends SurfaceView implements SurfaceHolder.Callback{
         mHolder.addCallback(this);
     }
 
+    /**
+     * Start drawing thread
+     */
     private void startThread() {
-        Log.d("lemi", "startThread: ");
+        Log.d("marco_polo", "startThread: ");
         mThread = new RunnerThread(mDrawer, getHolder());
         mThread.start();
     }
 
+    /**
+     * Stop drawing thread
+     */
     private void stopThread() {
         if(mThread == null)
             return;
@@ -64,26 +70,50 @@ public class PoloView extends SurfaceView implements SurfaceHolder.Callback{
         }
     }
 
+    /**
+     * Surface ready
+     * @param holder
+     */
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
         startThread();
     }
 
+    /**
+     * Surface changed
+     * @param holder surface holder
+     * @param format format
+     * @param width surface width
+     * @param height surface height
+     */
     @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {}
 
-    }
-
+    /**
+     * Surface destroyed
+     * @param holder surface holder
+     */
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
         stopThread();
     }
 
+    /**
+     * View size changed
+     * @param w width
+     * @param h height
+     * @param oldw old width
+     * @param oldh old height
+     */
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
     }
 
+    /**
+     * Set view drawer
+     * @param drawer drawer
+     */
     public void setDrawer(Drawer drawer) {
         if(mThread != null) {
 			mThread.cancel();
@@ -100,6 +130,9 @@ public class PoloView extends SurfaceView implements SurfaceHolder.Callback{
         startThread();
     }
 
+    /**
+     * Surface drawer thread
+     */
     private class RunnerThread extends Thread {
         private final Drawer mmDrawer;
         private final SurfaceHolder mmHolder;
