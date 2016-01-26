@@ -26,6 +26,8 @@ android {
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
     testCompile 'junit:junit:4.12'
+    testCompile 'org.mockito:mockito-core:1.10.19'
+
     compile 'com.google.android.gms:play-services:6.5.87'
     compile 'com.android.support:design:22.2.1'
     compile 'com.google.code.gson:gson:2.5'
@@ -39,10 +41,6 @@ dependencies {
     //Request
     compile 'com.github.bumptech.glide:glide:3.6.1'
     compile 'com.mcxiaoke.volley:library:1.0.19'
-//    compile 'org.apache.httpcomponents:httpclient-android:4.3.5'
-//    compile('org.apache.httpcomponents:httpmime:4.3.6') {
-//        exclude module: 'httpclient-android'
-//    }
 
     //Maps
     compile 'com.google.maps.android:android-maps-utils:0.4+'
