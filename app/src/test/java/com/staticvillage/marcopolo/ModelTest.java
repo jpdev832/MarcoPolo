@@ -19,8 +19,13 @@ public class ModelTest {
     public void dataStructTest() {
         DataStruct<String> dataStruct = new DataStruct<>("name", "{\"data\":1234}");
 
+		Gson gson = new Gson();
+		String json = gson.toJson(dataStruct);
+		String expectedJson = "{\"name\":\"name\",\"data\":\"{\"data\":1234}\"};
+		
         assertEquals(dataStruct.getName(), "name");
         assertEquals(dataStruct.getData(), "{\"data\":1234}");
+		assertEquals(json, expectedJson);
     }
 
     @Test
@@ -35,14 +40,6 @@ public class ModelTest {
 
     @Test
     public void pointMarkerTest() {
-        MarkerData markerData1 = new MarkerData();
-        MarkerData markerData2 = new MarkerData();
-
-        markerData1.setPointMarkerId(1234);
-        markerData1.setData("hello");
-        markerData2.setPointMarkerId(1234);
-        markerData2.setData("bye");
-
         List<String> data = new LinkedList<>();
         data.add("hello");
         data.add("bye");
@@ -53,6 +50,39 @@ public class ModelTest {
         pointMarker.setMarkerIndex(1234);
         pointMarker.setLatitude(40.573631);
         pointMarker.setLongitude(-73.976358);
-
+		pointMarker.setData(data);
+		pointMarker.setType("text");
+		pointMarker.setRadius(50);
+		
+		Gson gson = new Gson();
+		String json = gson.toJson(pointMarker);
+		String expectedJson = "{}";
+		
+		assertEquals(pointMarker.getId(), 1234);
+		assertEquals(pointMarker.getTimestamp(), 569721600000L);
+		assertEquals(pointMarker.getMarkerIndex(), 1234);
+		assertEquals(pointMarker.getLatitude(), 40.573631);
+		assertEquals(pointMarker.getLongitude(), -73.976358);
+		assertEquals(pointMarker.getData().size(), 2);
+		assertEquals(pointMarker.getType(), "text");
+		assertEquals(pointMarker.getRadius(), 50);
     }
+	
+	@Test
+	public void responseTest() {
+		Response response = new Response();
+		response.setStatus("SUCCESS");
+		response.setStatus_code(200);
+		response.setMessage("saved");
+		response.setPath("http://www.website.com/data/1234");
+		
+		Gson gson = new Gson();
+		String json = gson.toJson(response);
+		String expectedJson = "{\"status\":\"SUCCESS\",\"status_code\":200,\"message\":\"saved\",\"path\":\"http://www.website.com/data/1234\"}";
+		
+		assertEquals(response.getStatus(), "SUCCESS");
+		assertEquals(response.getStatus_code(), 200);
+		assertEquals(response.getMessage(), "saved");
+		assertEquals(response.getPath(), "http://www.website.com/data/1234");
+	}
 }
